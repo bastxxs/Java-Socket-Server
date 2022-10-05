@@ -1,62 +1,171 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package redes;
 
+import java.awt.Color;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.net.Socket;
-import java.net.UnknownHostException;
-import javax.swing.JOptionPane;
+import javax.swing.*;
 
-public class EchoClient {
-	public static void main(String[] args) throws IOException {
-		if (args.length != 2) {
-			System.err.println("Forma de uso: java EchoClient <IP Servidor> <número da porta>");
-			System.exit(1);
+public class EchoClient extends JFrame implements ActionListener, KeyListener {
+	private static final long serialVersionUID = 1L;
+	private JTextArea texto;
+	private JTextField txtMsg;
+	private JButton btnSend;
+	private JButton btnSair;
+	private JLabel lblHistorico;
+	private JLabel lblMsg;
+	private JPanel pnlContent;
+	private Socket socket;
+	private OutputStream ou;
+	private Writer ouw;
+	private BufferedWriter bfw;
+	private JTextField txtIP;
+	private JTextField txtPorta;
+	private JTextField txtNome;
 
-		}
-		String hostName = args[0];
-		int portNumber = Integer.parseInt(args[1]);
-		System.out.println("Cliente ECHO iniciado...");
-		String userInput;
-		Socket echoSocket;
-		BufferedReader in;
+public EchoClient() throws IOException{
+    JLabel lblMessage = new JLabel("Faça o login");
+    txtIP = new JTextField("127.0.0.1");
+    txtPorta = new JTextField();
+    txtNome = new JTextField();
+    Object[] texts = {lblMessage, txtIP, txtPorta, txtNome };
+    JOptionPane.showMessageDialog(null, texts);
+     pnlContent = new JPanel();
+     texto              = new JTextArea(10,20);
+     texto.setEditable(false);
+     texto.setBackground(new Color(240,240,240));
+     txtMsg                       = new JTextField(20);
+     lblHistorico     = new JLabel("Histórico");
+     lblMsg        = new JLabel("Mensagem");
+     btnSend                     = new JButton("Enviar");
+     btnSend.setToolTipText("Enviar Mensagem");
+     btnSair           = new JButton("Sair");
+     btnSair.setToolTipText("Sair do Chat");
+     btnSend.addActionListener(this);
+     btnSair.addActionListener(this);
+     btnSend.addKeyListener(this);
+     txtMsg.addKeyListener(this);
+     JScrollPane scroll = new JScrollPane(texto);
+     texto.setLineWrap(true);
+     pnlContent.add(lblHistorico);
+     pnlContent.add(scroll);
+     pnlContent.add(lblMsg);
+     pnlContent.add(txtMsg);
+     pnlContent.add(btnSair);
+     pnlContent.add(btnSend);
+     pnlContent.setBackground(Color.LIGHT_GRAY);
+     texto.setBorder(BorderFactory.createEtchedBorder(Color.BLUE,Color.BLUE));
+     txtMsg.setBorder(BorderFactory.createEtchedBorder(Color.BLUE, Color.BLUE));
+     setTitle(txtNome.getText());
+     setContentPane(pnlContent);
+     setLocationRelativeTo(null);
+     setResizable(false);
+     setSize(250,300);
+     setVisible(true);
+     setDefaultCloseOperation(EXIT_ON_CLOSE);
+}
 
-		try {
-			echoSocket = new Socket(hostName, portNumber);
-			in = new BufferedReader(new InputStreamReader(echoSocket.getInputStream()));
-			
-			JOptionPane.showConfirmDialog(null, "Conectado ao Servidor.");
-			
-			SendMessage();
+	public void conectar() throws IOException {
 
-			while ((userInput = in.readLine()) != null) {
-				System.out.println("Mensagem recebida: " + userInput);
-
-			}
-		} catch (UnknownHostException e) {
-			System.err.println("Ocorreu um erro ao tentar conectar ao servidor " + hostName);
-			System.exit(1);
-		} catch (IOException e) {
-			System.err.println("Não foi possível conectar ao Servidor " + hostName);
-			System.exit(1);
-		}
-
+		socket = new Socket(txtIP.getText(), Integer.parseInt(txtPorta.getText()));
+		ou = socket.getOutputStream();
+		ouw = new OutputStreamWriter(ou);
+		bfw = new BufferedWriter(ouw);
+		bfw.write(txtNome.getText() + "\r\n");
+		bfw.flush();
 	}
 
-	public static void SendMessage() {
+	public void enviarMensagem(String msg) throws IOException {
 
-		String Usuario = JOptionPane.showInputDialog("Digite sua mensagem: ");
+		if (msg.equals("Sair")) {
+			bfw.write("Desconectado \r\n");
+			texto.append("Desconectado \r\n");
+		} else {
+			bfw.write(msg + "\r\n");
+			texto.append(txtNome.getText() + ": " + txtMsg.getText() + "\r\n");
+		}
+		bfw.flush();
+		txtMsg.setText("");
+	}
 
+	public void escutar() throws IOException {
+
+		InputStream in = socket.getInputStream();
+		InputStreamReader inr = new InputStreamReader(in);
+		BufferedReader bfr = new BufferedReader(inr);
+		String msg = "";
+
+		while (!"Sair".equalsIgnoreCase(msg))
+
+			if (bfr.ready()) {
+				msg = bfr.readLine();
+				if (msg.equals("Sair"))
+					texto.append("Servidor caiu! \r\n");
+				else
+					texto.append(msg + "\r\n");
+			}
+	}
+
+	public void sair() throws IOException {
+
+		enviarMensagem("Sair");
+		bfw.close();
+		ouw.close();
+		ou.close();
+		socket.close();
+
+		System.exit(0);
+	}
+
+	public void actionPerformed(ActionEvent e) {
+
+		try {
+			if (e.getActionCommand().equals(btnSend.getActionCommand()))
+				enviarMensagem(txtMsg.getText());
+			else if (e.getActionCommand().equals(btnSair.getActionCommand()))
+				sair();
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+	}
+
+	public void keyPressed(KeyEvent e) {
+
+		if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+			try {
+				enviarMensagem(txtMsg.getText());
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+		}
+	}
+
+	@Override
+	public void keyReleased(KeyEvent arg0) {
 		
 	}
 
-	public void ShowMessage() {
+	@Override
+	public void keyTyped(KeyEvent arg0) {
+		
+	}
 
-		JOptionPane.showMessageDialog(null, "Chat: ", "Informação", JOptionPane.INFORMATION_MESSAGE);
+	public static void main(String[] args) throws IOException {
 
+		EchoClient app = new EchoClient();
+		app.conectar();
+		app.escutar();
 	}
 }
