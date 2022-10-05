@@ -1,58 +1,105 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package redes;
 
-import java.io.*;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.*;
+			import javax.swing.JOptionPane;
+			import java.net.Socket;
+			import java.io.BufferedReader;
+			import java.io.BufferedWriter;
+			import java.io.IOException;
+			import java.io.InputStream;
+			import java.io.InputStreamReader;
+			import java.io.OutputStream;
+			import java.io.OutputStreamWriter;
+			import java.io.Writer;
+			import java.net.ServerSocket;
+			import java.net.Socket;
+			import java.util.ArrayList;
+			import javax.swing.JLabel;
+			import javax.swing.JOptionPane;
+			import javax.swing.JTextField;
 
-public class EchoServer {
 
-	public static void main(String[] args) throws IOException {
+		public class EchoServer extends Thread {
 
-		if (args.length != 1) {
-			System.err.println("Forma de uso: java EchoServer <numero da porta>");
-			System.exit(1);
-		}
+			private static ArrayList<BufferedWriter> clientes;
+			private static ServerSocket server;
+			private String nome;
+			private Socket con;
+			private InputStream in;
+			private InputStreamReader inr;
+			private BufferedReader bfr;
 
-		int portNumber = Integer.parseInt(args[0]);
-		System.out.println("Servidor ECHO pronto... Pressione CTRL+C para sair. \nAguardando o Cliente...");
-		String inputLine;
-		ServerSocket serverSocket;
-		Socket clientSocket;
+			public EchoServer(Socket con) {
+				this.con = con;
+				try {
+					in = con.getInputStream();
+					inr = new InputStreamReader(in);
+					bfr = new BufferedReader(inr);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
 
-		try {
-			serverSocket = new ServerSocket(portNumber);
-			clientSocket = serverSocket.accept();
-			PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-			BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+			public void run() {
 
-			Usuario usuario1 = new Usuario();
+				try {
 
-			do {
+					String msg;
+					OutputStream ou = this.con.getOutputStream();
+					Writer ouw = new OutputStreamWriter(ou);
+					BufferedWriter bfw = new BufferedWriter(ouw);
+					clientes.add(bfw);
+					nome = msg = bfr.readLine();
 
-				System.out.println("Aguardando Mensagem a enviar...");
+					while (!"Sair".equalsIgnoreCase(msg) && msg != null) {
+						msg = bfr.readLine();
+						sendToAll(bfw, msg);
+						System.out.println(msg);
+					}
 
-				while ((inputLine = in.readLine()) != null) {
-					System.out.println("Mensagem enviada: " + inputLine);
-					out.println(inputLine);
-					System.out.println("Digite nova mensagem...");
+				} catch (Exception e) {
+					e.printStackTrace();
 
 				}
+			}
 
-			} while (Controlador.verificaUsuario(Usuario.getLogin(), Usuario.getSenha()) == false);
+			public void sendToAll(BufferedWriter bwSaida, String msg) throws IOException {
+				BufferedWriter bwS;
 
-		} catch (IOException e) {
-			System.out.println("Erro detectado ao tentar ouvir a porta " + portNumber + " ou escutar a conexão.");
-			System.out.println(e.getMessage());
+				for (BufferedWriter bw : clientes) {
+					bwS = (BufferedWriter) bw;
+					if (!(bwSaida == bwS)) {
+						bw.write(nome + " -> " + msg + "\r\n");
+						bw.flush();
+					}
+				}
+			}
 
-		}
+			public static void main(String[] args) {
 
-	}
+				try {
+					// Cria os objetos necessário para instânciar o servidor
+					JLabel lblMessage = new JLabel("Porta do Servidor:");
+					JTextField txtPorta = new JTextField();
+					Object[] texts = { lblMessage, txtPorta };
+					JOptionPane.showMessageDialog(null, texts);
+					server = new ServerSocket(Integer.parseInt(txtPorta.getText()));
+					clientes = new ArrayList<BufferedWriter>();
+					JOptionPane.showMessageDialog(null, "Servidor ativo na porta: " + txtPorta.getText());
+
+					while (true) {
+						System.out.println("Aguardando conexão...");
+						Socket con = server.accept();
+						System.out.println("Cliente conectado...");
+						Thread t = new EchoServer(con);
+						t.start();
+					}
+
+				} catch (Exception e) {
+
+					e.printStackTrace();
+				}
+			}
+		 
+	
+
 }
-
